@@ -2,7 +2,6 @@
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
-  // 允许跨域（让前端能调用）
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -11,12 +10,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '请提供关键词' });
   }
 
-  // 从环境变量读取密钥（安全！不写在代码里）
   const API_KEY = process.env.NAVER_API_KEY;
   const SECRET_KEY = process.env.NAVER_SECRET_KEY;
   const CUSTOMER_ID = process.env.NAVER_CUSTOMER_ID;
 
-  // 生成 Naver 要求的签名
   const timestamp = Date.now().toString();
   const method = 'GET';
   const path = '/keywordstool';
@@ -25,7 +22,6 @@ export default async function handler(req, res) {
     .update(`${timestamp}.${method}.${path}`)
     .digest('base64');
 
-  // 去掉关键词里的空格（Naver 要求）
   const hintKeyword = keyword.replace(/\s/g, '');
   const url = `https://api.searchad.naver.com${path}?hintKeywords=${encodeURIComponent(hintKeyword)}&showDetail=1`;
 
@@ -46,15 +42,32 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: 'Naver API 错误', detail: data });
     }
 
-    // 整理返回数据（只保留有用的字段）
-    const list = (data.keywordList || []).slice(0, 20).map(item => ({
-      keyword: item.relKeyword,
-      pcSearch: item.monthlyPcQcCnt,      // PC 月搜索
-      mobileSearch: item.monthlyMobileQcCnt, // 移动端月搜索
-      competition: item.compIdx,           // 竞争度
-    }));
+    // 处理搜索量：Naver 有时返回 "< 10" 字符串，转成数字
+    const toNumber = (val) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        const n = parseInt(val.replace(/[^0-9]/g, ''), 10);
+        return isNaN(n) ? 0 : n;
+      }
+      return 0;
+    };
 
-    return res.status(200).json({ keyword, list });
+    // 整理全部数据（不再切成 20 个）
+    let list = (data.keywordList || []).map(item => {
+      const pc = toNumber(item.monthlyPcQcCnt);
+      const mobile = toNumber(item.monthlyMobileQcCnt);
+      return {
+        keyword: item.relKeyword,
+        pcSearch: pc,
+        mobileSearch: mobile,
+        competition: item.compIdx,
+      };
+    });
+
+    // 按总搜索量从高到低排序
+    list.sort((a, b) => (b.pcSearch + b.mobileSearch) - (a.pcSearch + a.mobileSearch));
+
+    return res.status(200).json({ keyword, total: list.length, list });
   } catch (err) {
     return res.status(500).json({ error: '请求失败', detail: err.message });
   }
