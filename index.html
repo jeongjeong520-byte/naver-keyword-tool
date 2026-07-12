@@ -83,9 +83,12 @@ tr:hover td { background:#f9fef9; }
   </div>
 
   <div id="resultPage" class="hidden">
-    <div class="result-header">
+       <div class="result-header">
       <div class="result-title" id="resultTitle"></div>
-      <button class="back-btn" onclick="goHome()">← 返回首页</button>
+      <div style="display:flex; gap:10px;">
+        <button class="back-btn" onclick="exportExcel()" style="background:#03c75a; color:#fff;">📥 导出 Excel</button>
+        <button class="back-btn" onclick="goHome()">← 返回首页</button>
+      </div>
     </div>
 
     <!-- ★ 趋势图卡片 -->
@@ -424,7 +427,49 @@ async function autoTranslatePage(pageRows){
     console.log('翻译接口暂不可用，跳过', e.message);
   }
 }
+// ★ 导出 Excel（CSV）
+function exportExcel(){
+  // 导出当前筛选后的全部数据（不只是当前页）
+  const rows = getFilteredRows();
+  if(rows.length === 0){ alert('没有数据可以导出'); return; }
 
+  const typeName = { brand:'品牌词', big:'大类词', long:'长尾词' };
+  const header = ['#','关键词','翻译','词性','PC搜索量','移动搜索量','合计','PC点击率','移动点击率'];
+
+  const lines = rows.map((r,i)=>{
+    // 拿翻译（去掉前面的空格和括号）
+    let tr = trans(r.keyword).trim();
+    tr = tr.replace(/^\(|\)$/g,'');
+    const pcCtr = (r.pcCtr==='-'||r.pcCtr==null) ? '-' : r.pcCtr+'%';
+    const mbCtr = (r.mobileCtr==='-'||r.mobileCtr==null) ? '-' : r.mobileCtr+'%';
+    // 每个字段用引号包起来，防止逗号/特殊字符出错
+    return [
+      i+1,
+      r.keyword,
+      tr,
+      typeName[r.type] || r.type,
+      r.pcSearch,
+      r.mobileSearch,
+      r.volume,
+      pcCtr,
+      mbCtr
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+
+  // \uFEFF 是 BOM 头，防止 Excel 打开中文/韩文乱码
+  const csv = '\uFEFF' + header.join(',') + '\n' + lines.join('\n');
+
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const fname = (currentKeyword || '关键词分析') + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 function goHome(){
   document.getElementById('resultPage').classList.add('hidden');
   document.getElementById('homePage').classList.remove('hidden');
