@@ -35,7 +35,7 @@ tr:hover td { background:#f9fef9; }
 .badge-brand { background:#fff0f0; color:#e74c3c; }
 .badge-big { background:#eef5ff; color:#3498db; }
 .badge-long { background:#f0fff4; color:#27ae60; }
-.trans { color:#888; font-size:13px; }
+.trans { color:#666; font-size:13px; margin-left:4px; }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .num-total { font-weight:bold; color:#03c75a; }
 .loading { text-align:center; padding:40px; color:#888; }
@@ -119,7 +119,13 @@ const INDUSTRY_NAMES = {
 let currentData = [];
 let currentFilter = 'all';
 
-function trans(kw){ return TRANSLATE[kw] ? ` (${TRANSLATE[kw]})` : ''; }
+// ★ 改动1：本地词典优先，其次用后端翻译
+function trans(kw){
+  if(TRANSLATE[kw]) return ` (${TRANSLATE[kw]})`;
+  const found = currentData.find(r => r.keyword === kw && r.translation);
+  if(found) return ` (${found.translation})`;
+  return '';
+}
 
 function getType(kw, volume){
   if(BRAND_WORDS.includes(kw)) return 'brand';
@@ -149,7 +155,7 @@ function showIndustry(ind){
   currentData = seeds.map(kw => {
     const pc = Math.floor(Math.random()*20000)+1000;
     const mobile = Math.floor(Math.random()*30000)+2000;
-    return { keyword: kw, pcSearch:pc, mobileSearch:mobile, volume:pc+mobile, type:getType(kw, pc+mobile), isMain:false };
+    return { keyword: kw, pcSearch:pc, mobileSearch:mobile, volume:pc+mobile, type:getType(kw, pc+mobile), isMain:false, translation:'' };
   });
   currentFilter = 'all';
   resetTabs();
@@ -179,16 +185,25 @@ async function doSearch(){
     let list = data.list || [];
     if(!Array.isArray(list)) list = [];
 
-    // ★ 修正字段名：直接用后端返回的 pcSearch / mobileSearch
+    // ★ 改动2：保存后端返回的 translation
     currentData = list.map(item=>{
       const k = item.keyword || '';
       const pc = Number(item.pcSearch) || 0;
       const mobile = Number(item.mobileSearch) || 0;
       const vol = pc + mobile;
-      return { keyword:k, pcSearch:pc, mobileSearch:mobile, volume:vol, type:getType(k,vol), isMain:(k===kw) };
+      return {
+        keyword:k, pcSearch:pc, mobileSearch:mobile, volume:vol,
+        type:getType(k,vol), isMain:(k===kw),
+        translation: item.translation || ''
+      };
     });
 
     currentData.sort((a,b)=> (b.isMain?1:0)-(a.isMain?1:0) || b.volume-a.volume);
+
+    // 更新标题的翻译（此时 currentData 已有翻译数据）
+    document.getElementById('resultTitle').textContent =
+      `搜索：${kw}${trans(kw)} · 识别行业【${INDUSTRY_NAMES[ind]}】`;
+
     renderTable();
   }catch(e){
     document.getElementById('resultBody').innerHTML =
@@ -218,7 +233,6 @@ function renderTable(){
     return;
   }
 
-  // ★ 表头：PC / 移动 / 合计 三列
   let html = '<table><thead><tr>'
     + '<th>关键词</th><th>词性</th>'
     + '<th class="num">PC搜索量</th>'
