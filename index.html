@@ -7,29 +7,21 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,"Malgun Gothic","Microsoft YaHei",sans-serif; }
 body { background:#f4f6f9; color:#222; padding:20px; }
-.container { max-width:1000px; margin:0 auto; }
+.container { max-width:1100px; margin:0 auto; }
 h1 { text-align:center; color:#03c75a; margin:20px 0; font-size:28px; }
 .subtitle { text-align:center; color:#888; margin-bottom:30px; font-size:14px; }
-
-/* 搜索框 */
 .search-box { display:flex; gap:10px; margin-bottom:40px; }
 .search-box input { flex:1; padding:14px 18px; border:2px solid #ddd; border-radius:10px; font-size:16px; outline:none; }
 .search-box input:focus { border-color:#03c75a; }
 .search-box button { padding:14px 30px; background:#03c75a; color:#fff; border:none; border-radius:10px; font-size:16px; cursor:pointer; font-weight:bold; }
 .search-box button:hover { background:#02a94c; }
-
-/* 行业按钮 */
 .section-title { font-size:18px; font-weight:bold; margin:20px 0 15px; color:#333; }
 .industry-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:30px; }
 .industry-btn { padding:22px; background:#fff; border:2px solid #eee; border-radius:12px; cursor:pointer; text-align:center; font-size:16px; font-weight:bold; transition:.2s; }
 .industry-btn:hover { border-color:#03c75a; transform:translateY(-2px); box-shadow:0 4px 12px rgba(3,199,90,.15); }
-
-/* 词性筛选 */
 .filter-tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
 .filter-tab { padding:8px 18px; background:#fff; border:2px solid #ddd; border-radius:20px; cursor:pointer; font-size:14px; }
 .filter-tab.active { background:#03c75a; color:#fff; border-color:#03c75a; }
-
-/* 表格 */
 .result-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
 .result-title { font-size:18px; font-weight:bold; }
 .back-btn { padding:8px 16px; background:#eee; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
@@ -44,6 +36,8 @@ tr:hover td { background:#f9fef9; }
 .badge-big { background:#eef5ff; color:#3498db; }
 .badge-long { background:#f0fff4; color:#27ae60; }
 .trans { color:#888; font-size:13px; }
+.num { text-align:right; font-variant-numeric:tabular-nums; }
+.num-total { font-weight:bold; color:#03c75a; }
 .loading { text-align:center; padding:40px; color:#888; }
 .hidden { display:none; }
 </style>
@@ -53,13 +47,11 @@ tr:hover td { background:#f9fef9; }
   <h1>🔍 Naver 关键词工具</h1>
   <p class="subtitle">搜索关键词 · 查看行业投放热词 · 按词性分类</p>
 
-  <!-- 搜索框 -->
   <div class="search-box">
     <input type="text" id="searchInput" placeholder="输入关键词，如：게임쿠폰 / 호텔예약 ...">
     <button onclick="doSearch()">搜索</button>
   </div>
 
-  <!-- 首页：行业入口 -->
   <div id="homePage">
     <div class="section-title">📊 热门行业投放关键词</div>
     <div class="industry-grid">
@@ -72,7 +64,6 @@ tr:hover td { background:#f9fef9; }
     </div>
   </div>
 
-  <!-- 结果页 -->
   <div id="resultPage" class="hidden">
     <div class="result-header">
       <div class="result-title" id="resultTitle"></div>
@@ -89,8 +80,6 @@ tr:hover td { background:#f9fef9; }
 </div>
 
 <script>
-/* ================= 【要改词库看这里 1】行业词库 ================= */
-/* 每个行业的种子关键词，用来：①首页展示 ②判断搜索词属于哪个行业 */
 const INDUSTRY_KEYWORDS = {
   travel: ['호텔','호텔예약','여행','항공권','펜션','리조트','제주도여행','국내여행','해외여행','숙소','게스트하우스'],
   game:   ['게임','모바일게임','게임쿠폰','pc게임','rpg게임','게임다운로드','신작게임','롤','배그','던파'],
@@ -99,24 +88,13 @@ const INDUSTRY_KEYWORDS = {
   drama:  ['드라마','숏폼','웹드라마','릴스','넷플릭스','드라마추천','다시보기','미드','일드','웹툰'],
   other:  ['보험','대출','부동산','병원','학원','자동차','맛집','뉴스']
 };
-
-/* ================= 【要改词库看这里 2】品牌词库 ================= */
-/* 属于品牌词的名单，命中就标"品牌词" */
 const BRAND_WORDS = [
-  // 旅游
   '하나투어','노랑풍선','야놀자','여기어때','아고다','부킹닷컴','트리바고','인터파크투어','모두투어','에어비앤비','호텔스컴바인',
-  // 游戏
   '넷마블','엔씨소프트','넥슨','크래프톤','펄어비스','스마일게이트','컴투스','카카오게임즈',
-  // 电商
   '쿠팡','네이버쇼핑','11번가','지마켓','옥션','위메프','티몬','무신사','에이블리','올리브영',
-  // 工具
   '어도비','포토샵','알집','반디캠','오캠','곰플레이어','파파고','네이버웨일',
-  // 短剧
-  '넷플릭스','티�ing','웨이브','왓챠','디즈니플러스','쿠팡플레이'
+  '넷플릭스','티빙','웨이브','왓챠','디즈니플러스','쿠팡플레이'
 ];
-
-/* ================= 【要改词库看这里 3】翻译词典 ================= */
-/* 韩文 → 中文，命中就在括号里显示翻译，没命中就只显示韩文 */
 const TRANSLATE = {
   '호텔':'酒店','호텔예약':'酒店预订','여행':'旅游','항공권':'机票','펜션':'民宿','리조트':'度假村',
   '제주도여행':'济州岛旅游','국내여행':'国内旅游','해외여행':'海外旅游','숙소':'住宿','게스트하우스':'青年旅舍',
@@ -129,35 +107,28 @@ const TRANSLATE = {
   '드라마':'电视剧','숏폼':'短视频','웹드라마':'网剧','릴스':'Reels','넷플릭스':'Netflix',
   '드라마추천':'电视剧推荐','다시보기':'回放','미드':'美剧','일드':'日剧','웹툰':'网络漫画',
   '보험':'保险','대출':'贷款','부동산':'房地产','병원':'医院','학원':'补习班','자동차':'汽车','맛집':'美食店','뉴스':'新闻',
-  // 品牌翻译
   '야놀자':'Yanolja','여기어때':'Yeogi Eottae','아고다':'Agoda','부킹닷컴':'Booking.com',
-  '넷마블':'Netmarble','넥슨':'Nexon','쿠팡':'Coupang','11번가':'11st','지마켓':'Gmarket',
+  '넷마블':'Netmarble','넥슨':'Nexon','11번가':'11st','지마켓':'Gmarket',
   '무신사':'Musinsa','올리브영':'Olive Young','포토샵':'Photoshop','파파고':'Papago','티빙':'Tving'
 };
-
 const INDUSTRY_NAMES = {
   travel:'🏨 旅游&酒店', game:'🎮 游戏', ecommerce:'🛒 电商',
   tool:'🔧 工具', drama:'🎬 短剧', other:'📦 其他'
 };
 
-let currentData = [];        // 当前结果数据
-let currentFilter = 'all';   // 当前筛选
+let currentData = [];
+let currentFilter = 'all';
 
-/* ---------- 工具函数 ---------- */
-// 翻译
 function trans(kw){ return TRANSLATE[kw] ? ` (${TRANSLATE[kw]})` : ''; }
 
-// 判断词性：品牌 / 大类 / 长尾
 function getType(kw, volume){
   if(BRAND_WORDS.includes(kw)) return 'brand';
   const len = kw.replace(/\s/g,'').length;
-  // 短词 + 高搜索量 = 大类词
   if(len <= 5 && volume >= 5000) return 'big';
   if(len <= 4) return 'big';
-  return 'long';  // 其余长尾
+  return 'long';
 }
 
-// 判断关键词属于哪个行业
 function detectIndustry(kw){
   for(const [ind, words] of Object.entries(INDUSTRY_KEYWORDS)){
     for(const w of words){
@@ -173,16 +144,13 @@ const typeBadge = {
   long:'<span class="badge badge-long">长尾词</span>'
 };
 
-/* ---------- 首页：点行业 ---------- */
 function showIndustry(ind){
   const seeds = INDUSTRY_KEYWORDS[ind];
-  // 用内置词库造数据（方案①）；搜索量这里给个模拟值，真实数据走搜索
-  currentData = seeds.map(kw => ({
-    keyword: kw,
-    volume: Math.floor(Math.random()*40000)+2000, // 模拟搜索量，可改成真实
-    type: getType(kw, 20000),
-    isMain: false
-  }));
+  currentData = seeds.map(kw => {
+    const pc = Math.floor(Math.random()*20000)+1000;
+    const mobile = Math.floor(Math.random()*30000)+2000;
+    return { keyword: kw, pcSearch:pc, mobileSearch:mobile, volume:pc+mobile, type:getType(kw, pc+mobile), isMain:false };
+  });
   currentFilter = 'all';
   resetTabs();
   document.getElementById('homePage').classList.add('hidden');
@@ -191,7 +159,6 @@ function showIndustry(ind){
   renderTable();
 }
 
-/* ---------- 搜索 ---------- */
 async function doSearch(){
   const kw = document.getElementById('searchInput').value.trim();
   if(!kw){ alert('请输入关键词'); return; }
@@ -206,23 +173,21 @@ async function doSearch(){
   resetTabs();
 
   try{
-    // 调你现有的后端 API
     const res = await fetch(`/api/keyword?keyword=${encodeURIComponent(kw)}`);
     const data = await res.json();
 
-    // 解析数据（根据你的 API 返回结构，可能要微调字段名）
-    let list = data.keywordList || data.list || data || [];
+    let list = data.list || [];
     if(!Array.isArray(list)) list = [];
 
+    // ★ 修正字段名：直接用后端返回的 pcSearch / mobileSearch
     currentData = list.map(item=>{
-      const k = item.relKeyword || item.keyword || item.rel_keyword || '';
-      const pc = parseInt(item.monthlyPcQcCnt) || 0;
-      const mo = parseInt(item.monthlyMobileQcCnt) || 0;
-      const vol = (isNaN(pc)?0:pc) + (isNaN(mo)?0:mo);
-      return { keyword:k, volume:vol, type:getType(k,vol), isMain:(k===kw) };
+      const k = item.keyword || '';
+      const pc = Number(item.pcSearch) || 0;
+      const mobile = Number(item.mobileSearch) || 0;
+      const vol = pc + mobile;
+      return { keyword:k, pcSearch:pc, mobileSearch:mobile, volume:vol, type:getType(k,vol), isMain:(k===kw) };
     });
 
-    // 主关键词置顶
     currentData.sort((a,b)=> (b.isMain?1:0)-(a.isMain?1:0) || b.volume-a.volume);
     renderTable();
   }catch(e){
@@ -231,7 +196,6 @@ async function doSearch(){
   }
 }
 
-/* ---------- 词性筛选 ---------- */
 function filterType(t){
   currentFilter = t;
   document.querySelectorAll('.filter-tab').forEach(el=>{
@@ -245,7 +209,6 @@ function resetTabs(){
   });
 }
 
-/* ---------- 渲染表格 ---------- */
 function renderTable(){
   let rows = currentData;
   if(currentFilter!=='all') rows = rows.filter(r=>r.type===currentFilter);
@@ -255,26 +218,32 @@ function renderTable(){
     return;
   }
 
-  let html = '<table><thead><tr><th>关键词</th><th>词性</th><th>月搜索量</th></tr></thead><tbody>';
+  // ★ 表头：PC / 移动 / 合计 三列
+  let html = '<table><thead><tr>'
+    + '<th>关键词</th><th>词性</th>'
+    + '<th class="num">PC搜索量</th>'
+    + '<th class="num">移动搜索量</th>'
+    + '<th class="num">合计</th>'
+    + '</tr></thead><tbody>';
   rows.forEach(r=>{
     html += `<tr>
       <td class="${r.isMain?'kw-main':''}">${r.isMain?'⭐ ':''}${r.keyword}<span class="trans">${trans(r.keyword)}</span></td>
       <td>${typeBadge[r.type]}</td>
-      <td>${r.volume.toLocaleString()}</td>
+      <td class="num">${r.pcSearch.toLocaleString()}</td>
+      <td class="num">${r.mobileSearch.toLocaleString()}</td>
+      <td class="num num-total">${r.volume.toLocaleString()}</td>
     </tr>`;
   });
   html += '</tbody></table>';
   document.getElementById('resultBody').innerHTML = html;
 }
 
-/* ---------- 返回首页 ---------- */
 function goHome(){
   document.getElementById('resultPage').classList.add('hidden');
   document.getElementById('homePage').classList.remove('hidden');
   document.getElementById('searchInput').value='';
 }
 
-/* 回车搜索 */
 document.getElementById('searchInput').addEventListener('keypress',e=>{
   if(e.key==='Enter') doSearch();
 });
