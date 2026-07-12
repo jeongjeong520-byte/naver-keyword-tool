@@ -116,6 +116,12 @@ export default async function handler(req, res) {
       return 0;
     };
 
+        // 点击率可能是数字，也可能是 "< 0.1" 这种字符串，直接原样保留
+    const toCtr = (val) => {
+      if (val === undefined || val === null || val === '') return 0;
+      return val;   // 保持原样（可能是 0.35 或 "< 0.1"）
+    };
+
     let list = (data.keywordList || []).map(item => {
       const pc = toNumber(item.monthlyPcQcCnt);
       const mobile = toNumber(item.monthlyMobileQcCnt);
@@ -123,6 +129,8 @@ export default async function handler(req, res) {
         keyword: item.relKeyword,
         pcSearch: pc,
         mobileSearch: mobile,
+        pcCtr: toCtr(item.monthlyAvePcCtr),         // 👈 新增：PC 点击率
+        mobileCtr: toCtr(item.monthlyAveMobileCtr), // 👈 新增：移动点击率
         competition: item.compIdx,
         translation: ''
       };
