@@ -56,26 +56,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '请提供关键词' });
     }
 
-   // 读取所有账号
-let accounts = [];
-try {
-  accounts = JSON.parse(process.env.NAVER_ACCOUNTS || '[]');
-} catch (e) {
-  return res.status(500).json({ error: 'NAVER_ACCOUNTS 格式错误', message: e.message });
-}
-
-if (!accounts.length) {
-  return res.status(500).json({
-    error: '没有配置账号',
-    提示: '去 Vercel → Settings → Environment Variables 添加 NAVER_ACCOUNTS'
-  });
-}
-
-// 随机挑一组用（分散每个账号的配额，避免限流）
-const acc = accounts[Math.floor(Math.random() * accounts.length)];
-const API_KEY = acc.apiKey;
-const SECRET_KEY = acc.secret;
-const CUSTOMER_ID = acc.customerId;
+     const API_KEY = process.env.NAVER_API_KEY;
+    const SECRET_KEY = process.env.NAVER_SECRET_KEY;
+    const CUSTOMER_ID = process.env.NAVER_CUSTOMER_ID;
+    if (!API_KEY || !SECRET_KEY || !CUSTOMER_ID) {
+      return res.status(500).json({
+        error: '缺少账号配置',
+        提示: '去 Vercel → Settings → Environment Variables 添加 NAVER_API_KEY / NAVER_SECRET_KEY / NAVER_CUSTOMER_ID',
+        当前读到: {
+          NAVER_API_KEY: API_KEY ? '✅有' : '❌空',
+          NAVER_SECRET_KEY: SECRET_KEY ? '✅有' : '❌空',
+          NAVER_CUSTOMER_ID: CUSTOMER_ID ? '✅有' : '❌空'
+        }
+      });
+    }
 
     const timestamp = Date.now().toString();
     const method = 'GET';
