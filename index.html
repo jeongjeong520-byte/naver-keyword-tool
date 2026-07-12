@@ -231,7 +231,16 @@ function showIndustry(ind){
   currentData = seeds.map(kw => {
     const pc = Math.floor(Math.random()*20000)+1000;
     const mobile = Math.floor(Math.random()*30000)+2000;
-    return { keyword: kw, pcSearch:pc, mobileSearch:mobile, volume:pc+mobile, type:getType(kw, pc+mobile), isMain:false, translation:'' };
+        const comps = ['높음','중간','낮음'];
+    return {
+      keyword: kw, pcSearch:pc, mobileSearch:mobile, volume:pc+mobile,
+      pcCtr: (Math.random()*2).toFixed(2),
+      mobileCtr: (Math.random()*2).toFixed(2),
+      competition: comps[Math.floor(Math.random()*3)],
+      pcClick: Math.floor(pc*0.01),
+      mobileClick: Math.floor(mobile*0.01),
+      type:getType(kw, pc+mobile), isMain:false, translation:''
+    };
   });
   currentData.sort((a,b)=> b.volume-a.volume);
   currentFilter = 'all';
