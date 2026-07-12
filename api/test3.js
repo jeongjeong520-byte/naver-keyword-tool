@@ -1,9 +1,14 @@
-// api/test3.js —— 多ID汇总 + 近期日期
+// api/test3.js —— 多账号汇总，找点击量最多的
 import crypto from 'crypto';
 
-const ACCOUNTS = [
-  { name: '账户1', apiKey: process.env.NAVER_API_KEY, secret: process.env.NAVER_SECRET_KEY, customerId: process.env.NAVER_CUSTOMER_ID },
-].filter(a => a.apiKey && a.secret && a.customerId);
+// 👇 改成读取多账号（跟 keyword.js 一致）
+function loadAccounts() {
+  try {
+    return JSON.parse(process.env.NAVER_ACCOUNTS || '[]');
+  } catch {
+    return [];
+  }
+}
 
 function makeSign(secret, timestamp, method, path) {
   return crypto.createHmac('sha256', secret).update(`${timestamp}.${method}.${path}`).digest('base64');
@@ -21,41 +26,75 @@ async function naverGetRaw(acc, path, queryString = '') {
   return { status: res.status, data: parsed };
 }
 
-// 关键：日期用 UTC 减1天（避开当天没数据 + 服务器时间处理）
 function getDateRange(daysBack) {
   const now = new Date();
-  const until = new Date(now); until.setUTCDate(now.getUTCDate() - 1);   // 昨天
-  const since = new Date(now); since.setUTCDate(now.getUTCDate() - daysBack); // N天前
+  const until = new Date(now); until.setUTCDate(now.getUTCDate() - 1);
+  const since = new Date(now); since.setUTCDate(now.getUTCDate() - daysBack);
   const fmt = d => d.toISOString().slice(0, 10);
   return { since: fmt(since), until: fmt(until) };
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  const acc = ACCOUNTS[0];
-  const report = {};
-
-  // 拿所有广告组的关键词ID（多拿点，增加出数概率）
+// 👇 把"查单个账号"抽成一个函数
+async function queryOneAccount(acc) {
+  // 拿广告组
   const adgroups = await naverGetRaw(acc, '/ncc/adgroups');
+  if (!Array.isArray(adgroups.data)) return [];
+
   let allIds = [];
-  for (const g of adgroups.data.slice(0, 3)) {  // 前3个组
+  for (const g of adgroups.data.slice(0, 3)) {
     const kws = await naverGetRaw(acc, '/ncc/keywords', `nccAdgroupId=${g.nccAdgroupId}`);
     if (Array.isArray(kws.data)) allIds.push(...kws.data.map(k => k.nccKeywordId));
   }
-  const testIds = allIds.slice(0, 10);  // 取10个测试
-  report['测试ID数量'] = testIds.length;
+  const testIds = allIds.slice(0, 10);
+  if (!testIds.length) return [];
 
   const { since, until } = getDateRange(7);
-  report['近7天日期'] = { since, until };
-
-  // 多ID + timeIncrement=allDays（汇总，每个ID一条）
   const q = `ids=${testIds.join(',')}` +
             `&fields=${encodeURIComponent(JSON.stringify(['impCnt','clkCnt','salesAmt','ctr','cpc']))}` +
             `&timeRange=${encodeURIComponent(JSON.stringify({ since, until }))}` +
             `&timeIncrement=allDays`;
   const r = await naverGetRaw(acc, '/stats', q);
-  report['状态'] = r.status;
-  report['返回'] = r.data;
 
-  return res.status(200).json(report);
+  // 返回的每条数据，标记上是哪个账号
+  const rows = (r.data && r.data.data) ? r.data.data : [];
+  return rows.map(row => ({
+    accountName: acc.name,
+    customerId: acc.customerId,
+    ...row
+  }));
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  const accounts = loadAccounts();
+  if (!accounts.length) {
+    return res.status(500).json({ error: '没有配置 NAVER_ACCOUNTS' });
+  }
+
+  // 👇 所有账号并发查询
+  const settled = await Promise.allSettled(
+    accounts.map(acc => queryOneAccount(acc))
+  );
+
+  // 汇总所有账号的数据
+  let allRows = [];
+  settled.forEach(s => {
+    if (s.status === 'fulfilled') allRows.push(...s.value);
+  });
+
+  if (!allRows.length) {
+    return res.status(200).json({ message: '所有账号都没查到投放数据', total: 0 });
+  }
+
+  // 👇 按点击量（clkCnt）从大到小排序
+  allRows.sort((a, b) => (Number(b.clkCnt) || 0) - (Number(a.clkCnt) || 0));
+
+  const best = allRows[0];  // 点击量最多的那条
+
+  return res.status(200).json({
+    total: allRows.length,
+    best,          // 👈 点击量最多的
+    allRows        // 全部数据（已按点击量排序）
+  });
 }
