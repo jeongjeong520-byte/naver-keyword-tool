@@ -3,255 +3,280 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Naver 关键词分析工具</title>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<title>Naver 关键词工具</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-    background: #f5f6fa; color: #333; padding: 20px;
-  }
-  .container { max-width: 1100px; margin: 0 auto; }
-  h1 { font-size: 22px; margin-bottom: 20px; color: #03c75a; }
+* { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,"Malgun Gothic","Microsoft YaHei",sans-serif; }
+body { background:#f4f6f9; color:#222; padding:20px; }
+.container { max-width:1000px; margin:0 auto; }
+h1 { text-align:center; color:#03c75a; margin:20px 0; font-size:28px; }
+.subtitle { text-align:center; color:#888; margin-bottom:30px; font-size:14px; }
 
-  .search-box { display: flex; gap: 10px; margin-bottom: 24px; }
-  .search-box input {
-    flex: 1; padding: 14px 18px; border: 2px solid #ddd;
-    border-radius: 10px; font-size: 16px; outline: none;
-  }
-  .search-box input:focus { border-color: #03c75a; }
-  .search-box button {
-    padding: 14px 28px; background: #03c75a; color: #fff;
-    border: none; border-radius: 10px; font-size: 16px;
-    cursor: pointer; font-weight: bold;
-  }
-  .search-box button:hover { background: #02a84c; }
-  .search-box button:disabled { background: #aaa; cursor: not-allowed; }
+/* 搜索框 */
+.search-box { display:flex; gap:10px; margin-bottom:40px; }
+.search-box input { flex:1; padding:14px 18px; border:2px solid #ddd; border-radius:10px; font-size:16px; outline:none; }
+.search-box input:focus { border-color:#03c75a; }
+.search-box button { padding:14px 30px; background:#03c75a; color:#fff; border:none; border-radius:10px; font-size:16px; cursor:pointer; font-weight:bold; }
+.search-box button:hover { background:#02a94c; }
 
-  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .card {
-    background: #fff; border-radius: 12px; padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  }
-  .card .label { font-size: 13px; color: #888; margin-bottom: 8px; }
-  .card .value { font-size: 26px; font-weight: bold; color: #222; }
-  .card .sub { font-size: 12px; color: #aaa; margin-top: 4px; }
-  .card.gray .value { color: #bbb; font-size: 16px; }
+/* 行业按钮 */
+.section-title { font-size:18px; font-weight:bold; margin:20px 0 15px; color:#333; }
+.industry-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:30px; }
+.industry-btn { padding:22px; background:#fff; border:2px solid #eee; border-radius:12px; cursor:pointer; text-align:center; font-size:16px; font-weight:bold; transition:.2s; }
+.industry-btn:hover { border-color:#03c75a; transform:translateY(-2px); box-shadow:0 4px 12px rgba(3,199,90,.15); }
 
-  .panel {
-    background: #fff; border-radius: 12px; padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px;
-  }
-  .panel h2 { font-size: 16px; margin-bottom: 16px; color: #444; }
+/* 词性筛选 */
+.filter-tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.filter-tab { padding:8px 18px; background:#fff; border:2px solid #ddd; border-radius:20px; cursor:pointer; font-size:14px; }
+.filter-tab.active { background:#03c75a; color:#fff; border-color:#03c75a; }
 
-  .bid-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .bid-item {
-    text-align: center; padding: 16px; border-radius: 10px;
-    background: #f8f9fb;
-  }
-  .bid-item .pos { font-size: 13px; color: #888; margin-bottom: 6px; }
-  .bid-item .price { font-size: 22px; font-weight: bold; color: #03c75a; }
-  .bid-item .unit { font-size: 12px; color: #aaa; }
-
-  #trendChart { width: 100%; height: 320px; }
-
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
-  th { color: #888; font-weight: 600; font-size: 13px; }
-  tr:hover { background: #fafafa; }
-  .tag { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-  .tag.높음 { background: #ffe5e5; color: #e03131; }
-  .tag.중간 { background: #fff3cd; color: #d9a000; }
-  .tag.낮음 { background: #e3fcef; color: #0ca678; }
-  .trans { color: #0066cc; font-size: 13px; }
-
-  .loading, .error { text-align: center; padding: 40px; color: #888; }
-  .error { color: #e03131; }
-
-  @media (max-width: 768px) {
-    .cards, .bid-grid { grid-template-columns: repeat(2, 1fr); }
-  }
+/* 表格 */
+.result-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+.result-title { font-size:18px; font-weight:bold; }
+.back-btn { padding:8px 16px; background:#eee; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
+.back-btn:hover { background:#ddd; }
+table { width:100%; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.05); border-collapse:collapse; }
+th { background:#03c75a; color:#fff; padding:14px; text-align:left; font-size:14px; }
+td { padding:12px 14px; border-bottom:1px solid #f0f0f0; font-size:14px; }
+tr:hover td { background:#f9fef9; }
+.kw-main { font-weight:bold; color:#03c75a; }
+.badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold; }
+.badge-brand { background:#fff0f0; color:#e74c3c; }
+.badge-big { background:#eef5ff; color:#3498db; }
+.badge-long { background:#f0fff4; color:#27ae60; }
+.trans { color:#888; font-size:13px; }
+.loading { text-align:center; padding:40px; color:#888; }
+.hidden { display:none; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>🔍 Naver 关键词分析工具</h1>
+  <h1>🔍 Naver 关键词工具</h1>
+  <p class="subtitle">搜索关键词 · 查看行业投放热词 · 按词性分类</p>
 
+  <!-- 搜索框 -->
   <div class="search-box">
-    <input type="text" id="keywordInput" placeholder="输入关键词，例如：다이어트" />
-    <button id="searchBtn" onclick="search()">分析</button>
+    <input type="text" id="searchInput" placeholder="输入关键词，如：게임쿠폰 / 호텔예약 ...">
+    <button onclick="doSearch()">搜索</button>
   </div>
 
-  <div id="result"></div>
+  <!-- 首页：行业入口 -->
+  <div id="homePage">
+    <div class="section-title">📊 热门行业投放关键词</div>
+    <div class="industry-grid">
+      <div class="industry-btn" onclick="showIndustry('travel')">🏨 旅游&酒店</div>
+      <div class="industry-btn" onclick="showIndustry('game')">🎮 游戏</div>
+      <div class="industry-btn" onclick="showIndustry('ecommerce')">🛒 电商</div>
+      <div class="industry-btn" onclick="showIndustry('tool')">🔧 工具</div>
+      <div class="industry-btn" onclick="showIndustry('drama')">🎬 短剧</div>
+      <div class="industry-btn" onclick="showIndustry('other')">📦 其他</div>
+    </div>
+  </div>
+
+  <!-- 结果页 -->
+  <div id="resultPage" class="hidden">
+    <div class="result-header">
+      <div class="result-title" id="resultTitle"></div>
+      <button class="back-btn" onclick="goHome()">← 返回首页</button>
+    </div>
+    <div class="filter-tabs" id="filterTabs">
+      <div class="filter-tab active" data-type="all" onclick="filterType('all')">全部</div>
+      <div class="filter-tab" data-type="brand" onclick="filterType('brand')">品牌词</div>
+      <div class="filter-tab" data-type="big" onclick="filterType('big')">大类词</div>
+      <div class="filter-tab" data-type="long" onclick="filterType('long')">长尾词</div>
+    </div>
+    <div id="resultBody"></div>
+  </div>
 </div>
 
 <script>
-const API_BASE = ''; // 同域，留空即可
+/* ================= 【要改词库看这里 1】行业词库 ================= */
+/* 每个行业的种子关键词，用来：①首页展示 ②判断搜索词属于哪个行业 */
+const INDUSTRY_KEYWORDS = {
+  travel: ['호텔','호텔예약','여행','항공권','펜션','리조트','제주도여행','국내여행','해외여행','숙소','게스트하우스'],
+  game:   ['게임','모바일게임','게임쿠폰','pc게임','rpg게임','게임다운로드','신작게임','롤','배그','던파'],
+  ecommerce:['쇼핑','최저가','직구','할인','쿠팡','온라인쇼핑','특가','무료배송','명품','중고거래'],
+  tool:   ['앱','프로그램','편집','변환기','pdf변환','다운로드','유틸리티','캡처','녹화프로그램','번역기'],
+  drama:  ['드라마','숏폼','웹드라마','릴스','넷플릭스','드라마추천','다시보기','미드','일드','웹툰'],
+  other:  ['보험','대출','부동산','병원','학원','자동차','맛집','뉴스']
+};
 
-async function search() {
-  const kw = document.getElementById('keywordInput').value.trim();
-  if (!kw) { alert('请输入关键词'); return; }
+/* ================= 【要改词库看这里 2】品牌词库 ================= */
+/* 属于品牌词的名单，命中就标"品牌词" */
+const BRAND_WORDS = [
+  // 旅游
+  '하나투어','노랑풍선','야놀자','여기어때','아고다','부킹닷컴','트리바고','인터파크투어','모두투어','에어비앤비','호텔스컴바인',
+  // 游戏
+  '넷마블','엔씨소프트','넥슨','크래프톤','펄어비스','스마일게이트','컴투스','카카오게임즈',
+  // 电商
+  '쿠팡','네이버쇼핑','11번가','지마켓','옥션','위메프','티몬','무신사','에이블리','올리브영',
+  // 工具
+  '어도비','포토샵','알집','반디캠','오캠','곰플레이어','파파고','네이버웨일',
+  // 短剧
+  '넷플릭스','티�ing','웨이브','왓챠','디즈니플러스','쿠팡플레이'
+];
 
-  const btn = document.getElementById('searchBtn');
-  const result = document.getElementById('result');
-  btn.disabled = true; btn.textContent = '分析中...';
-  result.innerHTML = '<div class="loading">⏳ 正在获取数据...</div>';
+/* ================= 【要改词库看这里 3】翻译词典 ================= */
+/* 韩文 → 中文，命中就在括号里显示翻译，没命中就只显示韩文 */
+const TRANSLATE = {
+  '호텔':'酒店','호텔예약':'酒店预订','여행':'旅游','항공권':'机票','펜션':'民宿','리조트':'度假村',
+  '제주도여행':'济州岛旅游','국내여행':'国内旅游','해외여행':'海外旅游','숙소':'住宿','게스트하우스':'青年旅舍',
+  '게임':'游戏','모바일게임':'手游','게임쿠폰':'游戏优惠券','pc게임':'PC游戏','rpg게임':'RPG游戏',
+  '게임다운로드':'游戏下载','신작게임':'新游戏','롤':'英雄联盟','배그':'绝地求生','던파':'DNF',
+  '쇼핑':'购物','최저가':'最低价','직구':'海淘','할인':'折扣','쿠팡':'Coupang','온라인쇼핑':'网购',
+  '특가':'特价','무료배송':'免费配送','명품':'奢侈品','중고거래':'二手交易',
+  '앱':'App','프로그램':'程序','편집':'编辑','변환기':'转换器','pdf변환':'PDF转换','다운로드':'下载',
+  '유틸리티':'工具软件','캡처':'截图','녹화프로그램':'录屏软件','번역기':'翻译器',
+  '드라마':'电视剧','숏폼':'短视频','웹드라마':'网剧','릴스':'Reels','넷플릭스':'Netflix',
+  '드라마추천':'电视剧推荐','다시보기':'回放','미드':'美剧','일드':'日剧','웹툰':'网络漫画',
+  '보험':'保险','대출':'贷款','부동산':'房地产','병원':'医院','학원':'补习班','자동차':'汽车','맛집':'美食店','뉴스':'新闻',
+  // 品牌翻译
+  '야놀자':'Yanolja','여기어때':'Yeogi Eottae','아고다':'Agoda','부킹닷컴':'Booking.com',
+  '넷마블':'Netmarble','넥슨':'Nexon','쿠팡':'Coupang','11번가':'11st','지마켓':'Gmarket',
+  '무신사':'Musinsa','올리브영':'Olive Young','포토샵':'Photoshop','파파고':'Papago','티빙':'Tving'
+};
 
-  try {
-    // 并行请求 搜索量 和 竞价
-    const [kwRes, bidRes] = await Promise.all([
-      fetch(`${API_BASE}/api/keyword?keyword=${encodeURIComponent(kw)}`).then(r => r.json()),
-      fetch(`${API_BASE}/api/bid?keyword=${encodeURIComponent(kw)}`).then(r => r.json()).catch(() => null),
-    ]);
+const INDUSTRY_NAMES = {
+  travel:'🏨 旅游&酒店', game:'🎮 游戏', ecommerce:'🛒 电商',
+  tool:'🔧 工具', drama:'🎬 短剧', other:'📦 其他'
+};
 
-    if (kwRes.error) {
-      result.innerHTML = `<div class="error">❌ ${kwRes.error}</div>`;
-      return;
-    }
+let currentData = [];        // 当前结果数据
+let currentFilter = 'all';   // 当前筛选
 
-    render(kw, kwRes, bidRes);
-  } catch (err) {
-    result.innerHTML = `<div class="error">❌ 请求失败：${err.message}</div>`;
-  } finally {
-    btn.disabled = false; btn.textContent = '分析';
-  }
+/* ---------- 工具函数 ---------- */
+// 翻译
+function trans(kw){ return TRANSLATE[kw] ? ` (${TRANSLATE[kw]})` : ''; }
+
+// 判断词性：品牌 / 大类 / 长尾
+function getType(kw, volume){
+  if(BRAND_WORDS.includes(kw)) return 'brand';
+  const len = kw.replace(/\s/g,'').length;
+  // 短词 + 高搜索量 = 大类词
+  if(len <= 5 && volume >= 5000) return 'big';
+  if(len <= 4) return 'big';
+  return 'long';  // 其余长尾
 }
 
-function fmt(n) { return (n || 0).toLocaleString('en-US'); }
-
-function render(kw, kwData, bidData) {
-  const list = kwData.list || [];
-  // 主关键词 = 列表里精确匹配的，找不到就取第一个
-  const main = list.find(x => x.keyword.replace(/\s/g,'') === kw.replace(/\s/g,'')) || list[0] || {};
-  const totalSearch = (main.pcSearch || 0) + (main.mobileSearch || 0);
-  const mobileRatio = totalSearch > 0 ? Math.round((main.mobileSearch / totalSearch) * 100) : 0;
-
-  // 竞价数据
-  const b = bidData && !bidData.error ? bidData : {};
-
-  const html = `
-    <!-- 顶部 4 张卡片 -->
-    <div class="cards">
-      <div class="card">
-        <div class="label">月度总搜索量</div>
-        <div class="value">${fmt(totalSearch)}</div>
-        <div class="sub">PC ${fmt(main.pcSearch)} · 移动 ${fmt(main.mobileSearch)}</div>
-      </div>
-      <div class="card">
-        <div class="label">竞争程度</div>
-        <div class="value"><span class="tag ${main.competition||'낮음'}">${main.competition||'-'}</span></div>
-        <div class="sub">Naver 竞争指数</div>
-      </div>
-      <div class="card gray">
-        <div class="label">我的广告曝光量</div>
-        <div class="value">需投放</div>
-        <div class="sub">开通广告后显示</div>
-      </div>
-      <div class="card gray">
-        <div class="label">我的广告点击量</div>
-        <div class="value">需投放</div>
-        <div class="sub">开通广告后显示</div>
-      </div>
-    </div>
-
-    <!-- 竞价出价估算 -->
-    <div class="panel">
-      <h2>💰 竞价出价估算（PC · 单位: 韩元)</h2>
-      <div class="bid-grid">
-        <div class="bid-item"><div class="pos">第 1 位</div><div class="price">${fmt(b.position1)}</div><div class="unit">₩ / 次点击</div></div>
-        <div class="bid-item"><div class="pos">第 2 位</div><div class="price">${fmt(b.position2)}</div><div class="unit">₩ / 次点击</div></div>
-        <div class="bid-item"><div class="pos">第 3 位</div><div class="price">${fmt(b.position3)}</div><div class="unit">₩ / 次点击</div></div>
-        <div class="bid-item"><div class="pos">第 5 位</div><div class="price">${fmt(b.position5)}</div><div class="unit">₩ / 次点击</div></div>
-      </div>
-    </div>
-
-    <!-- 趋势曲线 -->
-    <div class="panel">
-      <h2>📈 近 30 天搜索趋势（基于月搜索量估算）</h2>
-      <div id="trendChart"></div>
-    </div>
-
-    <!-- 相关关键词 -->
-    <div class="panel">
-      <h2>🔑 相关关键词（共 ${list.length} 个）</h2>
-      <table>
-        <thead>
-          <tr><th>关键词</th><th>中文翻译</th><th>PC 搜索</th><th>移动搜索</th><th>总搜索</th><th>竞争</th></tr>
-        </thead>
-        <tbody>
-          ${list.slice(0, 50).map((x, i) => `
-            <tr>
-              <td>${x.keyword}</td>
-              <td class="trans" data-kw="${x.keyword}" data-idx="${i}">翻译中...</td>
-              <td>${fmt(x.pcSearch)}</td>
-              <td>${fmt(x.mobileSearch)}</td>
-              <td><b>${fmt(x.pcSearch + x.mobileSearch)}</b></td>
-              <td><span class="tag ${x.competition||'낮음'}">${x.competition||'-'}</span></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-  document.getElementById('result').innerHTML = html;
-
-  drawTrend(totalSearch, mobileRatio);
-
-  // 翻译所有关键词
-  translateAll(list.slice(0, 50));
-}
-
-// 批量翻译关键词（逐个调用，避免过快被限制）
-async function translateAll(list) {
-  const cells = document.querySelectorAll('.trans');
-  for (let i = 0; i < cells.length; i++) {
-    const kw = cells[i].getAttribute('data-kw');
-    try {
-      const res = await fetch(`${API_BASE}/api/translate?text=${encodeURIComponent(kw)}`);
-      const data = await res.json();
-      cells[i].textContent = data.translation || '—';
-    } catch (e) {
-      cells[i].textContent = '翻译失败';
+// 判断关键词属于哪个行业
+function detectIndustry(kw){
+  for(const [ind, words] of Object.entries(INDUSTRY_KEYWORDS)){
+    for(const w of words){
+      if(kw.includes(w) || w.includes(kw)) return ind;
     }
   }
+  return 'other';
 }
 
-// 用月搜索量生成一条平滑的 30 天趋势曲线
-function drawTrend(totalMonthly, mobileRatio) {
-  const chart = echarts.init(document.getElementById('trendChart'));
-  const dailyAvg = totalMonthly / 30;
+const typeBadge = {
+  brand:'<span class="badge badge-brand">品牌词</span>',
+  big:'<span class="badge badge-big">大类词</span>',
+  long:'<span class="badge badge-long">长尾词</span>'
+};
 
-  const days = [], values = [];
-  const today = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    days.push(`${d.getMonth()+1}/${d.getDate()}`);
+/* ---------- 首页：点行业 ---------- */
+function showIndustry(ind){
+  const seeds = INDUSTRY_KEYWORDS[ind];
+  // 用内置词库造数据（方案①）；搜索量这里给个模拟值，真实数据走搜索
+  currentData = seeds.map(kw => ({
+    keyword: kw,
+    volume: Math.floor(Math.random()*40000)+2000, // 模拟搜索量，可改成真实
+    type: getType(kw, 20000),
+    isMain: false
+  }));
+  currentFilter = 'all';
+  resetTabs();
+  document.getElementById('homePage').classList.add('hidden');
+  document.getElementById('resultPage').classList.remove('hidden');
+  document.getElementById('resultTitle').textContent = INDUSTRY_NAMES[ind] + ' · 热门投放关键词';
+  renderTable();
+}
 
-    // 周末稍高 + 随机波动，做出自然感
-    const weekend = (d.getDay() === 0 || d.getDay() === 6) ? 1.15 : 1;
-    const wave = 0.85 + Math.random() * 0.3;
-    values.push(Math.round(dailyAvg * weekend * wave));
+/* ---------- 搜索 ---------- */
+async function doSearch(){
+  const kw = document.getElementById('searchInput').value.trim();
+  if(!kw){ alert('请输入关键词'); return; }
+
+  document.getElementById('homePage').classList.add('hidden');
+  document.getElementById('resultPage').classList.remove('hidden');
+  const ind = detectIndustry(kw);
+  document.getElementById('resultTitle').textContent =
+    `搜索：${kw}${trans(kw)} · 识别行业【${INDUSTRY_NAMES[ind]}】`;
+  document.getElementById('resultBody').innerHTML = '<div class="loading">⏳ 加载中...</div>';
+  currentFilter = 'all';
+  resetTabs();
+
+  try{
+    // 调你现有的后端 API
+    const res = await fetch(`/api/keyword?keyword=${encodeURIComponent(kw)}`);
+    const data = await res.json();
+
+    // 解析数据（根据你的 API 返回结构，可能要微调字段名）
+    let list = data.keywordList || data.list || data || [];
+    if(!Array.isArray(list)) list = [];
+
+    currentData = list.map(item=>{
+      const k = item.relKeyword || item.keyword || item.rel_keyword || '';
+      const pc = parseInt(item.monthlyPcQcCnt) || 0;
+      const mo = parseInt(item.monthlyMobileQcCnt) || 0;
+      const vol = (isNaN(pc)?0:pc) + (isNaN(mo)?0:mo);
+      return { keyword:k, volume:vol, type:getType(k,vol), isMain:(k===kw) };
+    });
+
+    // 主关键词置顶
+    currentData.sort((a,b)=> (b.isMain?1:0)-(a.isMain?1:0) || b.volume-a.volume);
+    renderTable();
+  }catch(e){
+    document.getElementById('resultBody').innerHTML =
+      '<div class="loading">❌ 加载失败，请检查 API：'+e.message+'</div>';
   }
+}
 
-  chart.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 20, bottom: 40 },
-    xAxis: { type: 'category', data: days, axisLabel: { fontSize: 11 } },
-    yAxis: { type: 'value', axisLabel: { fontSize: 11 } },
-    series: [{
-      data: values, type: 'line', smooth: true,
-      itemStyle: { color: '#03c75a' },
-      areaStyle: { color: 'rgba(3,199,90,0.12)' },
-      showSymbol: false,
-    }],
+/* ---------- 词性筛选 ---------- */
+function filterType(t){
+  currentFilter = t;
+  document.querySelectorAll('.filter-tab').forEach(el=>{
+    el.classList.toggle('active', el.dataset.type===t);
   });
-  window.addEventListener('resize', () => chart.resize());
+  renderTable();
+}
+function resetTabs(){
+  document.querySelectorAll('.filter-tab').forEach(el=>{
+    el.classList.toggle('active', el.dataset.type==='all');
+  });
 }
 
-// 回车搜索
-document.getElementById('keywordInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') search();
+/* ---------- 渲染表格 ---------- */
+function renderTable(){
+  let rows = currentData;
+  if(currentFilter!=='all') rows = rows.filter(r=>r.type===currentFilter);
+
+  if(rows.length===0){
+    document.getElementById('resultBody').innerHTML='<div class="loading">暂无数据</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>关键词</th><th>词性</th><th>月搜索量</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += `<tr>
+      <td class="${r.isMain?'kw-main':''}">${r.isMain?'⭐ ':''}${r.keyword}<span class="trans">${trans(r.keyword)}</span></td>
+      <td>${typeBadge[r.type]}</td>
+      <td>${r.volume.toLocaleString()}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('resultBody').innerHTML = html;
+}
+
+/* ---------- 返回首页 ---------- */
+function goHome(){
+  document.getElementById('resultPage').classList.add('hidden');
+  document.getElementById('homePage').classList.remove('hidden');
+  document.getElementById('searchInput').value='';
+}
+
+/* 回车搜索 */
+document.getElementById('searchInput').addEventListener('keypress',e=>{
+  if(e.key==='Enter') doSearch();
 });
 </script>
 </body>
