@@ -123,16 +123,18 @@ export default async function handler(req, res) {
     };
     console.log('👀 第一条原始数据:', JSON.stringify(data.keywordList[0]));
 
-    let list = (data.keywordList || []).map(item => {
+      let list = (data.keywordList || []).map(item => {
       const pc = toNumber(item.monthlyPcQcCnt);
       const mobile = toNumber(item.monthlyMobileQcCnt);
       return {
         keyword: item.relKeyword,
         pcSearch: pc,
         mobileSearch: mobile,
-        pcCtr: toCtr(item.monthlyAvePcCtr),         // 👈 新增：PC 点击率
-        mobileCtr: toCtr(item.monthlyAveMobileCtr), // 👈 新增：移动点击率
-        competition: item.compIdx,
+        pcCtr: toCtr(item.monthlyAvePcCtr),
+        mobileCtr: toCtr(item.monthlyAveMobileCtr),
+        competition: item.compIdx,                          // 竞争程度
+        pcClick: toNumber(item.monthlyAvePcClkCnt),         // 👈 新增：PC月均点击
+        mobileClick: toNumber(item.monthlyAveMobileClkCnt), // 👈 新增：移动月均点击
         translation: ''
       };
     });
