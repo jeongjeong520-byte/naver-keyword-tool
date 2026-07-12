@@ -35,6 +35,11 @@ tr:hover td { background:#f9fef9; }
 .badge-brand { background:#fff0f0; color:#e74c3c; }
 .badge-big { background:#eef5ff; color:#3498db; }
 .badge-long { background:#f0fff4; color:#27ae60; }
+  /* 竞争程度标签 */
+.comp { display:inline-block; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:bold; }
+.comp-high { background:#ffebee; color:#e53935; }   /* 높음 高 */
+.comp-mid  { background:#fff8e1; color:#f9a825; }   /* 중간 中 */
+.comp-low  { background:#e8f5e9; color:#43a047; }   /* 낮음 低 */
 .trans { color:#666; font-size:13px; margin-left:4px; }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .num-total { font-weight:bold; color:#03c75a; }
@@ -214,7 +219,13 @@ const typeBadge = {
   big:'<span class="badge badge-big">大类词</span>',
   long:'<span class="badge badge-long">长尾词</span>'
 };
-
+// 竞争度：韩文 → 中文 + 颜色
+function compBadge(c){
+  if(c==='높음' || c==='高') return '<span class="comp comp-high">🔴 高</span>';
+  if(c==='중간' || c==='中') return '<span class="comp comp-mid">🟡 中</span>';
+  if(c==='낮음' || c==='低') return '<span class="comp comp-low">🟢 低</span>';
+  return '<span style="color:#bbb">-</span>';
+}
 function showIndustry(ind){
   const seeds = INDUSTRY_KEYWORDS[ind];
   currentData = seeds.map(kw => {
@@ -264,8 +275,11 @@ async function doSearch(){
       const vol = pc + mobile;
       return {
         keyword:k, pcSearch:pc, mobileSearch:mobile, volume:vol,
-        pcCtr: item.pcCtr ?? '-',           // 👈 新增：PC点击率
-        mobileCtr: item.mobileCtr ?? '-',   // 👈 新增：移动点击率
+        pcCtr: item.pcCtr ?? '-',
+        mobileCtr: item.mobileCtr ?? '-',
+        competition: item.competition || '-',                    // 👈 竞争度
+        pcClick: Number(item.pcClick) || 0,                      // 👈 PC点击
+        mobileClick: Number(item.mobileClick) || 0,              // 👈 移动点击
         type:getType(k,vol), isMain:(k===kw),
         translation: item.translation || ''
       };
@@ -342,16 +356,19 @@ function renderTable(){
   const start = (currentPage-1)*pageSize;
   const pageRows = rows.slice(start, start+pageSize);
 
-    let html = '<table><thead><tr>'
+     let html = '<table><thead><tr>'
     + '<th style="width:40px">#</th>'
     + '<th>关键词</th><th>词性</th>'
     + '<th class="num">PC搜索量</th>'
     + '<th class="num">移动搜索量</th>'
     + '<th class="num">合计</th>'
-    + '<th class="num">PC点击率</th>'    
-    + '<th class="num">移动点击率</th>'    
+    + '<th class="num">PC点击率</th>'
+    + '<th class="num">移动点击率</th>'
+    + '<th class="num">月均点击</th>'      // 👈 新增
+    + '<th>竞争度</th>'                    // 👈 新增
     + '</tr></thead><tbody>';
   pageRows.forEach((r,i)=>{
+    const totalClick = (r.pcClick||0) + (r.mobileClick||0);
     html += `<tr>
       <td>${start+i+1}</td>
       <td class="${r.isMain?'kw-main':''}">${r.isMain?'⭐ ':''}${r.keyword}<span class="trans">${trans(r.keyword)}</span></td>
@@ -359,8 +376,10 @@ function renderTable(){
       <td class="num">${r.pcSearch.toLocaleString()}</td>
       <td class="num">${r.mobileSearch.toLocaleString()}</td>
       <td class="num num-total">${r.volume.toLocaleString()}</td>
-      <td class="num">${r.pcCtr}${r.pcCtr==='-'?'':'%'}</td>      
-      <td class="num">${r.mobileCtr}${r.mobileCtr==='-'?'':'%'}</td> 
+      <td class="num">${r.pcCtr}${r.pcCtr==='-'?'':'%'}</td>
+      <td class="num">${r.mobileCtr}${r.mobileCtr==='-'?'':'%'}</td>
+      <td class="num">${totalClick.toLocaleString()}</td>
+      <td>${compBadge(r.competition)}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -434,25 +453,19 @@ function exportExcel(){
   if(rows.length === 0){ alert('没有数据可以导出'); return; }
 
   const typeName = { brand:'品牌词', big:'大类词', long:'长尾词' };
-  const header = ['#','关键词','翻译','词性','PC搜索量','移动搜索量','合计','PC点击率','移动点击率'];
+  const compName = { '높음':'高','중간':'中','낮음':'低' };
+  const header = ['#','关键词','翻译','词性','PC搜索量','移动搜索量','合计','PC点击率','移动点击率','月均点击','竞争度'];
 
   const lines = rows.map((r,i)=>{
-    // 拿翻译（去掉前面的空格和括号）
-    let tr = trans(r.keyword).trim();
-    tr = tr.replace(/^\(|\)$/g,'');
+    let tr = trans(r.keyword).trim().replace(/^\(|\)$/g,'');
     const pcCtr = (r.pcCtr==='-'||r.pcCtr==null) ? '-' : r.pcCtr+'%';
     const mbCtr = (r.mobileCtr==='-'||r.mobileCtr==null) ? '-' : r.mobileCtr+'%';
-    // 每个字段用引号包起来，防止逗号/特殊字符出错
+    const totalClick = (r.pcClick||0) + (r.mobileClick||0);
+    const comp = compName[r.competition] || r.competition || '-';
     return [
-      i+1,
-      r.keyword,
-      tr,
-      typeName[r.type] || r.type,
-      r.pcSearch,
-      r.mobileSearch,
-      r.volume,
-      pcCtr,
-      mbCtr
+      i+1, r.keyword, tr, typeName[r.type]||r.type,
+      r.pcSearch, r.mobileSearch, r.volume,
+      pcCtr, mbCtr, totalClick, comp
     ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
   });
 
