@@ -160,11 +160,40 @@ function trans(kw){
   return '';
 }
 
+// 修饰词库（出现这些 = 长尾词）
+const MODIFIER_WORDS = [
+  '무료','할인','최저가','특가','저렴','가격','쿠폰','이벤트','프로모션','혜택',
+  '추천','순위','인기','랭킹','비교','best','베스트','top',
+  '다운로드','설치','예약','신청','가입','후기','리뷰','방법','사용법','하는법',
+  'pc','모바일','앱','온라인','사이트','홈페이지','무료로',
+  '제주도','서울','부산','강남','국내','해외','근처',
+  '2024','2025','신작','최신','실시간','오늘'
+];
+
+function isBrand(kw){
+  if(BRAND_WORDS.includes(kw)) return true;
+  if(BRAND_WORDS.some(b => kw.includes(b))) return true;
+  const clean = kw.replace(/\s/g,'');
+  if(/^[a-z0-9]+$/i.test(clean) && clean.length <= 8) return true; // 纯英文短词
+  return false;
+}
+
 function getType(kw, volume){
-  if(BRAND_WORDS.includes(kw)) return 'brand';
+  // 1. 品牌词
+  if(isBrand(kw)) return 'brand';
+
+  // 2. 含修饰词 → 长尾
+  if(MODIFIER_WORDS.some(m => kw.includes(m))) return 'long';
+
+  // 3. 多词组合 → 长尾
+  const wordCount = kw.trim().split(/\s+/).length;
+  if(wordCount >= 2) return 'long';
+
+  // 4. 单个短词 → 大类
   const len = kw.replace(/\s/g,'').length;
-  if(len <= 5 && volume >= 5000) return 'big';
   if(len <= 4) return 'big';
+
+  // 5. 其余 → 长尾
   return 'long';
 }
 
