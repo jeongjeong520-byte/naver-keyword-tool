@@ -1,41 +1,48 @@
-// api/keyword.js —— Naver 搜索广告 API 后端（含自动翻译版）
+// api/keyword.js —— Naver 搜索广告 API 后端（含自动翻译版 · 逐个并发翻译）
 import crypto from 'crypto';
 
-// ===== 翻译缓存（同一个词不重复翻译）=====
+// ===== 翻译缓存 =====
 const translateCache = {};
 
-// ===== 批量翻译函数 =====
-async function translateBatch(words) {
-  // 过滤出还没缓存的词
-  const needTranslate = words.filter(w => !translateCache[w]);
+// ===== 翻译单个词 =====
+async function translateOne(word) {
+  if (!word) return '';
+  if (translateCache[word] !== undefined) return translateCache[word];
 
-  if (needTranslate.length > 0) {
-    // 用 \n 把多个词拼成一段，一次性翻译（省请求次数）
-    const joined = needTranslate.join('\n');
-    try {
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=zh-CN&dt=t&q=${encodeURIComponent(joined)}`;
-      const response = await fetch(url);
-      const data = await response.json();
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=zh-CN&dt=t&q=${encodeURIComponent(word)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000); // 4秒超时
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    clearTimeout(timer);
 
-      // data[0] 是一个数组，每一段翻译是一个 item
-      // item[0]=译文, item[1]=原文
-      const segments = data[0] || [];
-      segments.forEach(seg => {
-        const zh = (seg[0] || '').trim();
-        const ko = (seg[1] || '').trim();
-        if (ko) translateCache[ko] = zh;
-      });
-    } catch (e) {
-      // 翻译失败就跳过，不影响主功能
-      console.error('翻译失败:', e.message);
+    const data = await response.json();
+    // 结构：data[0] 是数组，每段 [译文, 原文, ...]，拼起来才是完整译文
+    let zh = '';
+    if (Array.isArray(data[0])) {
+      zh = data[0].map(seg => (seg && seg[0]) ? seg[0] : '').join('').trim();
     }
+    translateCache[word] = zh;
+    return zh;
+  } catch (e) {
+    return '';
   }
+}
 
-  // 返回一个 {韩文: 中文} 的对照表
+// ===== 批量翻译（逐个并发，分批避免限流）=====
+async function translateBatch(words) {
   const result = {};
-  words.forEach(w => {
-    result[w] = translateCache[w] || '';
-  });
+  const batchSize = 10; // 每批10个并发
+
+  for (let i = 0; i < words.length; i += batchSize) {
+    const batch = words.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (w) => {
+      result[w] = await translateOne(w);
+    }));
+  }
   return result;
 }
 
@@ -117,24 +124,20 @@ export default async function handler(req, res) {
         pcSearch: pc,
         mobileSearch: mobile,
         competition: item.compIdx,
+        translation: ''
       };
     });
 
     list.sort((a, b) => (b.pcSearch + b.mobileSearch) - (a.pcSearch + a.mobileSearch));
 
-    // ===== 只翻译前 30 个（避免太慢/被限制）=====
-    const topList = list.slice(0, 30);
+    // ===== 只翻译前 50 个 =====
+    const topN = 50;
+    const topList = list.slice(0, topN);
     const wordsToTranslate = topList.map(item => item.keyword);
     const translations = await translateBatch(wordsToTranslate);
 
-    // 把中文翻译加到每个词上
     topList.forEach(item => {
       item.translation = translations[item.keyword] || '';
-    });
-
-    // 剩下的词不翻译，translation 留空
-    list.forEach((item, i) => {
-      if (i >= 30) item.translation = '';
     });
 
     return res.status(200).json({ keyword, total: list.length, list });
