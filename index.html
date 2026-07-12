@@ -63,6 +63,7 @@
   .tag.높음 { background: #ffe5e5; color: #e03131; }
   .tag.중간 { background: #fff3cd; color: #d9a000; }
   .tag.낮음 { background: #e3fcef; color: #0ca678; }
+  .trans { color: #0066cc; font-size: 13px; }
 
   .loading, .error { text-align: center; padding: 40px; color: #888; }
   .error { color: #e03131; }
@@ -175,12 +176,13 @@ function render(kw, kwData, bidData) {
       <h2>🔑 相关关键词（共 ${list.length} 个）</h2>
       <table>
         <thead>
-          <tr><th>关键词</th><th>PC 搜索</th><th>移动搜索</th><th>总搜索</th><th>竞争</th></tr>
+          <tr><th>关键词</th><th>中文翻译</th><th>PC 搜索</th><th>移动搜索</th><th>总搜索</th><th>竞争</th></tr>
         </thead>
         <tbody>
-          ${list.slice(0, 50).map(x => `
+          ${list.slice(0, 50).map((x, i) => `
             <tr>
               <td>${x.keyword}</td>
+              <td class="trans" data-kw="${x.keyword}" data-idx="${i}">翻译中...</td>
               <td>${fmt(x.pcSearch)}</td>
               <td>${fmt(x.mobileSearch)}</td>
               <td><b>${fmt(x.pcSearch + x.mobileSearch)}</b></td>
@@ -194,6 +196,24 @@ function render(kw, kwData, bidData) {
   document.getElementById('result').innerHTML = html;
 
   drawTrend(totalSearch, mobileRatio);
+
+  // 翻译所有关键词
+  translateAll(list.slice(0, 50));
+}
+
+// 批量翻译关键词（逐个调用，避免过快被限制）
+async function translateAll(list) {
+  const cells = document.querySelectorAll('.trans');
+  for (let i = 0; i < cells.length; i++) {
+    const kw = cells[i].getAttribute('data-kw');
+    try {
+      const res = await fetch(`${API_BASE}/api/translate?text=${encodeURIComponent(kw)}`);
+      const data = await res.json();
+      cells[i].textContent = data.translation || '—';
+    } catch (e) {
+      cells[i].textContent = '翻译失败';
+    }
+  }
 }
 
 // 用月搜索量生成一条平滑的 30 天趋势曲线
