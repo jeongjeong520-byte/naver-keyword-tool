@@ -121,6 +121,7 @@ export default async function handler(req, res) {
       if (val === undefined || val === null || val === '') return 0;
       return val;   // 保持原样（可能是 0.35 或 "< 0.1"）
     };
+    console.log('👀 第一条原始数据:', JSON.stringify(data.keywordList[0]));
 
     let list = (data.keywordList || []).map(item => {
       const pc = toNumber(item.monthlyPcQcCnt);
