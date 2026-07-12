@@ -40,6 +40,24 @@ tr:hover td { background:#f9fef9; }
 .num-total { font-weight:bold; color:#03c75a; }
 .loading { text-align:center; padding:40px; color:#888; }
 .hidden { display:none; }
+
+/* ===== 趋势图卡片 ===== */
+.trend-card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.05); padding:24px; margin-bottom:24px; }
+.trend-head { font-size:18px; font-weight:bold; margin-bottom:4px; }
+.trend-sub { color:#888; font-size:13px; margin-bottom:18px; }
+.trend-bars { display:flex; align-items:flex-end; gap:6px; height:180px; padding:0 4px; }
+.trend-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+.trend-bar { width:100%; background:linear-gradient(180deg,#4c8bf5,#03c75a); border-radius:6px 6px 0 0; transition:.3s; min-height:4px; }
+.trend-bar-wrap:hover .trend-bar { opacity:.8; }
+.trend-label { font-size:11px; color:#999; margin-top:6px; text-align:center; white-space:nowrap; }
+.trend-val { font-size:11px; color:#555; margin-bottom:4px; }
+
+/* ===== 分页 ===== */
+.pagination { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:16px; padding:8px 4px; color:#666; font-size:14px; }
+.page-btn { padding:6px 14px; background:#fff; border:1px solid #ddd; border-radius:8px; cursor:pointer; font-size:14px; }
+.page-btn:hover:not(:disabled) { border-color:#03c75a; color:#03c75a; }
+.page-btn:disabled { opacity:.4; cursor:not-allowed; }
+.page-size { padding:6px 10px; border:1px solid #ddd; border-radius:8px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -69,6 +87,14 @@ tr:hover td { background:#f9fef9; }
       <div class="result-title" id="resultTitle"></div>
       <button class="back-btn" onclick="goHome()">← 返回首页</button>
     </div>
+
+    <!-- ★ 趋势图卡片 -->
+    <div id="trendCard" class="trend-card hidden">
+      <div class="trend-head" id="trendHead">热度趋势（Top 关联词搜索量）</div>
+      <div class="trend-sub" id="trendSub">基于 Naver 月搜索量 · PC+移动合计</div>
+      <div class="trend-bars" id="trendBars"></div>
+    </div>
+
     <div class="filter-tabs" id="filterTabs">
       <div class="filter-tab active" data-type="all" onclick="filterType('all')">全部</div>
       <div class="filter-tab" data-type="brand" onclick="filterType('brand')">品牌词</div>
@@ -76,6 +102,7 @@ tr:hover td { background:#f9fef9; }
       <div class="filter-tab" data-type="long" onclick="filterType('long')">长尾词</div>
     </div>
     <div id="resultBody"></div>
+    <div id="pagination"></div>
   </div>
 </div>
 
@@ -118,10 +145,16 @@ const INDUSTRY_NAMES = {
 
 let currentData = [];
 let currentFilter = 'all';
+let currentPage = 1;
+let pageSize = 20;
+let currentKeyword = '';
 
-// ★ 改动1：本地词典优先，其次用后端翻译
+// 翻页时自动翻译用的缓存
+const clientTransCache = {};
+
 function trans(kw){
   if(TRANSLATE[kw]) return ` (${TRANSLATE[kw]})`;
+  if(clientTransCache[kw]) return ` (${clientTransCache[kw]})`;
   const found = currentData.find(r => r.keyword === kw && r.translation);
   if(found) return ` (${found.translation})`;
   return '';
@@ -157,25 +190,32 @@ function showIndustry(ind){
     const mobile = Math.floor(Math.random()*30000)+2000;
     return { keyword: kw, pcSearch:pc, mobileSearch:mobile, volume:pc+mobile, type:getType(kw, pc+mobile), isMain:false, translation:'' };
   });
+  currentData.sort((a,b)=> b.volume-a.volume);
   currentFilter = 'all';
+  currentPage = 1;
   resetTabs();
   document.getElementById('homePage').classList.add('hidden');
   document.getElementById('resultPage').classList.remove('hidden');
   document.getElementById('resultTitle').textContent = INDUSTRY_NAMES[ind] + ' · 热门投放关键词';
+  renderTrend();
   renderTable();
 }
 
 async function doSearch(){
   const kw = document.getElementById('searchInput').value.trim();
   if(!kw){ alert('请输入关键词'); return; }
+  currentKeyword = kw;
 
   document.getElementById('homePage').classList.add('hidden');
   document.getElementById('resultPage').classList.remove('hidden');
+  document.getElementById('trendCard').classList.add('hidden');
   const ind = detectIndustry(kw);
   document.getElementById('resultTitle').textContent =
     `搜索：${kw}${trans(kw)} · 识别行业【${INDUSTRY_NAMES[ind]}】`;
   document.getElementById('resultBody').innerHTML = '<div class="loading">⏳ 加载中...</div>';
+  document.getElementById('pagination').innerHTML = '';
   currentFilter = 'all';
+  currentPage = 1;
   resetTabs();
 
   try{
@@ -185,7 +225,6 @@ async function doSearch(){
     let list = data.list || [];
     if(!Array.isArray(list)) list = [];
 
-    // ★ 改动2：保存后端返回的 translation
     currentData = list.map(item=>{
       const k = item.keyword || '';
       const pc = Number(item.pcSearch) || 0;
@@ -200,10 +239,10 @@ async function doSearch(){
 
     currentData.sort((a,b)=> (b.isMain?1:0)-(a.isMain?1:0) || b.volume-a.volume);
 
-    // 更新标题的翻译（此时 currentData 已有翻译数据）
     document.getElementById('resultTitle').textContent =
-      `搜索：${kw}${trans(kw)} · 识别行业【${INDUSTRY_NAMES[ind]}】`;
+      `搜索：${kw}${trans(kw)} · 识别行业【${INDUSTRY_NAMES[ind]}】 · 共${currentData.length}个词`;
 
+    renderTrend();
     renderTable();
   }catch(e){
     document.getElementById('resultBody').innerHTML =
@@ -211,8 +250,33 @@ async function doSearch(){
   }
 }
 
+// ★ 趋势柱状图：取搜索量 Top 12
+function renderTrend(){
+  const card = document.getElementById('trendCard');
+  const top = [...currentData].sort((a,b)=>b.volume-a.volume).slice(0,12);
+  if(top.length === 0){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const max = Math.max(...top.map(r=>r.volume)) || 1;
+
+  document.getElementById('trendHead').textContent =
+    `📈 ${currentKeyword||'热门'} 相关热词搜索量 Top ${top.length}`;
+
+  let html = '';
+  top.forEach(r=>{
+    const h = Math.round(r.volume / max * 100);
+    const label = r.keyword.length > 6 ? r.keyword.slice(0,6)+'…' : r.keyword;
+    html += `<div class="trend-bar-wrap" title="${r.keyword}${trans(r.keyword)} : ${r.volume.toLocaleString()}">
+        <div class="trend-val">${(r.volume/1000).toFixed(0)}k</div>
+        <div class="trend-bar" style="height:${h}%"></div>
+        <div class="trend-label">${label}</div>
+      </div>`;
+  });
+  document.getElementById('trendBars').innerHTML = html;
+}
+
 function filterType(t){
   currentFilter = t;
+  currentPage = 1;
   document.querySelectorAll('.filter-tab').forEach(el=>{
     el.classList.toggle('active', el.dataset.type===t);
   });
@@ -224,23 +288,36 @@ function resetTabs(){
   });
 }
 
-function renderTable(){
+function getFilteredRows(){
   let rows = currentData;
   if(currentFilter!=='all') rows = rows.filter(r=>r.type===currentFilter);
+  return rows;
+}
+
+function renderTable(){
+  const rows = getFilteredRows();
 
   if(rows.length===0){
     document.getElementById('resultBody').innerHTML='<div class="loading">暂无数据</div>';
+    document.getElementById('pagination').innerHTML='';
     return;
   }
 
+  const totalPages = Math.ceil(rows.length / pageSize);
+  if(currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage-1)*pageSize;
+  const pageRows = rows.slice(start, start+pageSize);
+
   let html = '<table><thead><tr>'
+    + '<th style="width:40px">#</th>'
     + '<th>关键词</th><th>词性</th>'
     + '<th class="num">PC搜索量</th>'
     + '<th class="num">移动搜索量</th>'
     + '<th class="num">合计</th>'
     + '</tr></thead><tbody>';
-  rows.forEach(r=>{
+  pageRows.forEach((r,i)=>{
     html += `<tr>
+      <td>${start+i+1}</td>
       <td class="${r.isMain?'kw-main':''}">${r.isMain?'⭐ ':''}${r.keyword}<span class="trans">${trans(r.keyword)}</span></td>
       <td>${typeBadge[r.type]}</td>
       <td class="num">${r.pcSearch.toLocaleString()}</td>
@@ -250,12 +327,74 @@ function renderTable(){
   });
   html += '</tbody></table>';
   document.getElementById('resultBody').innerHTML = html;
+
+  renderPagination(rows.length, totalPages);
+
+  // ★ 翻页时自动翻译本页还没有译文的词
+  autoTranslatePage(pageRows);
+}
+
+function renderPagination(total, totalPages){
+  const html = `
+    <div class="pagination">
+      每页
+      <select class="page-size" onchange="changePageSize(this.value)">
+        <option value="10" ${pageSize==10?'selected':''}>10</option>
+        <option value="20" ${pageSize==20?'selected':''}>20</option>
+        <option value="50" ${pageSize==50?'selected':''}>50</option>
+      </select> 条
+      <span>第 ${(currentPage-1)*pageSize+1} - ${Math.min(currentPage*pageSize,total)} 条 / 共 ${total} 条</span>
+      <button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>‹ 上一页</button>
+      <span>${currentPage} / ${totalPages}</span>
+      <button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''}>下一页 ›</button>
+    </div>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p){
+  const rows = getFilteredRows();
+  const totalPages = Math.ceil(rows.length/pageSize);
+  if(p<1||p>totalPages) return;
+  currentPage = p;
+  renderTable();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function changePageSize(v){
+  pageSize = Number(v);
+  currentPage = 1;
+  renderTable();
+}
+// ★ 自动翻译本页缺失译文的词
+async function autoTranslatePage(pageRows){
+  const need = pageRows
+    .map(r=>r.keyword)
+    .filter(k => k && !TRANSLATE[k] && !clientTransCache[k]
+      && !currentData.find(r=>r.keyword===k && r.translation));
+  if(need.length===0) return;
+
+  try{
+    const res = await fetch(`/api/translate?words=${encodeURIComponent(need.join('|'))}`);
+    if(!res.ok) return; // 后端没有该接口就跳过，不报错
+    const data = await res.json();
+    // 期望后端返回格式： { "게임":"游戏", "무료게임":"免费游戏", ... }
+    if(data && typeof data === 'object'){
+      let changed = false;
+      for(const k in data){
+        if(data[k]){ clientTransCache[k] = data[k]; changed = true; }
+      }
+      if(changed) renderTable(); // 拿到译文后重绘当前页
+    }
+  }catch(e){
+    // 静默失败，不影响页面
+    console.log('翻译接口暂不可用，跳过', e.message);
+  }
 }
 
 function goHome(){
   document.getElementById('resultPage').classList.add('hidden');
   document.getElementById('homePage').classList.remove('hidden');
   document.getElementById('searchInput').value='';
+  document.getElementById('trendCard').classList.add('hidden');
 }
 
 document.getElementById('searchInput').addEventListener('keypress',e=>{
