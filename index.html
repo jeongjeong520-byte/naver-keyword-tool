@@ -254,13 +254,15 @@ async function doSearch(){
     let list = data.list || [];
     if(!Array.isArray(list)) list = [];
 
-    currentData = list.map(item=>{
+       currentData = list.map(item=>{
       const k = item.keyword || '';
       const pc = Number(item.pcSearch) || 0;
       const mobile = Number(item.mobileSearch) || 0;
       const vol = pc + mobile;
       return {
         keyword:k, pcSearch:pc, mobileSearch:mobile, volume:vol,
+        pcCtr: item.pcCtr ?? '-',           // 👈 新增：PC点击率
+        mobileCtr: item.mobileCtr ?? '-',   // 👈 新增：移动点击率
         type:getType(k,vol), isMain:(k===kw),
         translation: item.translation || ''
       };
@@ -337,12 +339,14 @@ function renderTable(){
   const start = (currentPage-1)*pageSize;
   const pageRows = rows.slice(start, start+pageSize);
 
-  let html = '<table><thead><tr>'
+    let html = '<table><thead><tr>'
     + '<th style="width:40px">#</th>'
     + '<th>关键词</th><th>词性</th>'
     + '<th class="num">PC搜索量</th>'
     + '<th class="num">移动搜索量</th>'
     + '<th class="num">合计</th>'
+    + '<th class="num">PC点击率</th>'    
+    + '<th class="num">移动点击率</th>'    
     + '</tr></thead><tbody>';
   pageRows.forEach((r,i)=>{
     html += `<tr>
@@ -352,6 +356,8 @@ function renderTable(){
       <td class="num">${r.pcSearch.toLocaleString()}</td>
       <td class="num">${r.mobileSearch.toLocaleString()}</td>
       <td class="num num-total">${r.volume.toLocaleString()}</td>
+      <td class="num">${r.pcCtr}${r.pcCtr==='-'?'':'%'}</td>      
+      <td class="num">${r.mobileCtr}${r.mobileCtr==='-'?'':'%'}</td> 
     </tr>`;
   });
   html += '</tbody></table>';
